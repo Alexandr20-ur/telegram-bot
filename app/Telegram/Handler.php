@@ -10,7 +10,9 @@
 
 namespace App\Telegram;
 
+use App\Http\Controllers\TelegramController;
 use App\Models\Group;
+use DefStudio\Telegraph\Exceptions\TelegraphException;
 use DefStudio\Telegraph\Facades\Telegraph;
 use DefStudio\Telegraph\Handlers\WebhookHandler;
 use DefStudio\Telegraph\Keyboard\Button;
@@ -24,42 +26,37 @@ class Handler extends WebhookHandler
     /**
      * Запуск телеграмм бота
      * @return void
+     * @throws TelegraphException
      */
     public function start(): void
     {
         $info = $this->chat->info();
         $firstName = (string) $info['first_name'];
         if($firstName) {
-            $message = "Здравствуйте *". $firstName . "!* Прошу ознакомиться с возможностями данного бота!";
-            $this->chat->markdown($message)->keyboard(Keyboard::make()
-                ->row([
-                    Button::make('🛒 Каталог')->action('catalog'),
-                    Button::make('🔎 Поиск')->action('search'),
-                    Button::make('❕ Информация')->action('read')->param('id', $this->chat->chat_id),
-                    Button::make('📢 Поддержка')->url('https://t.me/epccep'),
-                ])
-                ->chunk(2)
-                ->row([
-                    Button::make('🛍️ Корзина')->action('read')->param('id', $this->chat->chat_id),
-                ])
-                ->row([
-                    Button::make('📦 Мои заказы')->action('read')->param('id', $this->chat->chat_id),
-                ]))->send();
+            TelegramController::mainText($this->chat, $firstName);
         }
     }
 
-    public function catalog()
+    /**
+     * добавление иконок в бд utf8_encode("\u{1F600}")
+     * вывод иконок из бд utf8_decode($icons)
+     *
+     * @return void
+     */
+    public function catalog(): void
     {
         $catalog = Group::all();
         $buttons = [];
-        foreach ($catalog as $category) {
-            $buttons[] = Button::make($category->name)->action($category->action);
+
+        foreach ($catalog as $group) {
+            $icons = utf8_decode($group->icons);
+            $buttons[] = Button::make("$icons $group->name")->action('group')->param('id', $group->id);
         }
-        $buttons[] = Button::make('↩️ В начало')->action('start');
+        $buttons[] = Button::make('↩️ В начало')->action('start')->param('edit', true);
+
         $this->chat->edit($this->messageId)->message('Выберете категорию')->keyboard(Keyboard::make()
         ->row($buttons)
         ->chunk(2))->send();
-
     }
 
 }
