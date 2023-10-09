@@ -14,6 +14,7 @@ namespace App\Http\Controllers;
 use DefStudio\Telegraph\Keyboard\Button;
 use DefStudio\Telegraph\Keyboard\Keyboard;
 use DefStudio\Telegraph\Models\TelegraphChat;
+use DefStudio\Telegraph\Telegraph;
 
 class TelegramController extends Controller
 {
@@ -23,12 +24,12 @@ class TelegramController extends Controller
      *
      * @param TelegraphChat $chat
      * @param string $firstName
-     * @return void
+     * @return Telegraph
      */
-    static function mainText(TelegraphChat $chat, string $firstName): void
+    static function mainText(TelegraphChat $chat, string $firstName): Telegraph
     {
         $message = "Здравствуйте *". $firstName . "!* Прошу ознакомиться с возможностями данного бота!";
-        $chat->markdown($message)->keyboard(Keyboard::make()
+        return $chat->markdown($message)->keyboard(Keyboard::make()
             ->row([
                 Button::make('🛒 Каталог')->action('catalog'),
                 Button::make('🔎 Поиск')->action('search'),
@@ -41,6 +42,6 @@ class TelegramController extends Controller
             ])
             ->row([
                 Button::make('📦 Мои заказы')->action('read')->param('id', $chat->chat_id),
-            ]))->send();
+            ]));
     }
 }
