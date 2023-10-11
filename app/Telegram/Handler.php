@@ -21,6 +21,7 @@ use DefStudio\Telegraph\Keyboard\Keyboard;
 
 class Handler extends WebhookHandler
 {
+    private array $ids;
 
     /**
      * Запуск телеграмм бота
@@ -55,7 +56,7 @@ class Handler extends WebhookHandler
 
         foreach ($catalog as $group) {
             $icons = utf8_decode($group->icons);
-            $buttons[] = Button::make("$icons $group->name")->action('group')->param('id', $group->id)->param('messageId', $this->messageId);
+            $buttons[] = Button::make("$icons $group->name")->action('goods')->param('id', $group->id);
         }
         $buttons[] = Button::make('↩️ В начало')->action('main');
         $this->chat->edit($this->messageId)->message('Выберете категорию')->keyboard(Keyboard::make()
@@ -63,32 +64,32 @@ class Handler extends WebhookHandler
         ->chunk(2))->send();
     }
 
-    public function group()
+    public function goods(): void
     {
-        $id = $this->data->get('id');
-        $messageId = $this->data->get('messageId');
-        $good = Good::where('id_group', $id)->limit(1)->first();
+        if($id = $this->data->get('id')) {
+            cache(['id' => $id], 300);
+        } else {
+            $id = cache('id');
+        }
+        $builder = Good::query()->where('id_group', $id);
 
         // Удаляем предыдущее сообщение т.к заменить медиа сообщением не получается
         $this->chat->deleteMessage($this->messageId)->send();
-        $this->chat->photo($good->path_img)->markdown("$good->name")
-            ->keyboard(Keyboard::make()
-                ->row([
-                    Button::make('⬅️')->action('prev'),
-                    Button::make('➡️')->action('next'),
-                ])
-                ->row([
-                    Button::make('🛒 Добавить в корзину')->action('shop')->param('idGood', $good->id)
-                ])
-                ->row([
-                    Button::make('Назад')->action('catalog')
-                ]))->send();
-//        foreach ($goods as $good) {
-//            $this->chat
-//                ->edit($this->messageId)
-//                ->photo(Storage::path($good->path_img))
-//                ->message($good->name)->send();
-//        }
+        $offset = $this->data->get('offset');
+        if($offset) {
+            $good = $builder->offset($offset)->first();
+            TelegramController::cardText(chat: $this->chat, good: $good, offset: $offset)->send();
+        } else {
+            $good = $builder->first();
+            TelegramController::cardText(chat: $this->chat, good: $good)->send();
+        }
+    }
+
+    private function goodsItem(int $idGroup) {
+        if(isset($this->goods[$idGroup])) {
+            $this->goods[$idGroup] = Good::where('id_group', $idGroup);
+        }
+        return $this->goods[$idGroup];
     }
 
     /**
